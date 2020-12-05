@@ -187,7 +187,6 @@ class exec_reporter {
 				$mail->SMTPSecure = $this->config['smtp_encryption'];       // Enable TLS encryption; `PHPMailer::ENCRYPTION_SMTPS` encouraged
 				$mail->Port       = $this->config['smtp_port'];             // TCP port to connect to, use 465 for `PHPMailer::ENCRYPTION_SMTPS` above
 
-				// Recipients
 				$mail->setFrom($this->config['from_email'], $this->config['from_name']);
 				foreach ($this->config['recipients'] as $key => $recipient) {
 					if (is_numeric($key)) {
@@ -210,8 +209,31 @@ class exec_reporter {
 
 		} else {
 			// Using mail()
-			// TODO
-			throw new \Exception('Not yet implemented the use of mail()');
+			$to = [];
+			foreach ($this->config['recipients'] as $key => $recipient) {
+				if (is_numeric($key)) {
+					$to[] = $recipient;
+				} else {
+					$to[] = $recipient .' <'. $key .'>';
+				}
+			}
+
+			$headers = [];
+			$headers[] = 'From: "'. str_replace('"', '', $this->config['from_name']) .'" <'. $this->config['from_email'] .'>';
+			if ($is_html) {
+				$headers[] = 'MIME-Version: 1.0';
+				$headers[] = 'Content-type: text/html; charset=utf-8';
+			}
+			$headers[] = 'X-Mailer: exec-reporter';
+
+			if (is_array($recip)) {
+				$recipname = $recip[0];
+				$recip = $recip[1];
+			}
+
+			if (!mail(implode(', ', $to), $subject, $body, implode("\r\n", $headers))) {
+				throw new \Exception('Failed to send email by Exec-Reporter.');
+			}
 		}
 	}
 
