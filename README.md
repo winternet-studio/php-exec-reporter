@@ -4,6 +4,8 @@ An all-in-one CLI script for handling cron jobs - both logging output and notify
 
 It includes an embedded version of [PHPMailer](https://github.com/PHPMailer/PHPMailer) (see version in source code).
 
+Only tested on Linux. Does not seem to work on Windows.
+
 ## Documentation
 
 See the top of `exec-reporter.php`.

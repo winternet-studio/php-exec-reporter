@@ -12,7 +12,7 @@ $default_exec_reporter_config = [
 	'recipients' => [],   // formatter as either `['sample@sample.com']` or `['sample@sample.com' => 'Mr Sample']`
 	'notify_if_stdout' => false,  //send email if STDOUT has content
 	'notify_if_stderr' => true,  //send email if STDERR has content
-	'notify_if_exitcode' => true,  //send email if exit code is not zero
+	'notify_if_exitcode' => true,  //send email if exit code is not zero (not working on Windows)
 	'http_url' => false,  //set URL to send a POST HTTP request to
 
 	'append_stdout' => false,
@@ -91,7 +91,7 @@ class exec_reporter {
 			2 => ['pipe', 'w'],  // stderr
 		];
 
-		if (!$this->config['skip_exitcode_handling']) {
+		if (!$this->config['skip_exitcode_handling'] && PHP_OS !== 'WINNT') {
 			$descriptorspec[3] = ['pipe', 'w'];  // for writing exit to (source: https://www.php.net/manual/en/function.proc-close.php)
 			$eff_command = $command .';echo $? >&3';
 		} else {
@@ -116,7 +116,7 @@ class exec_reporter {
 			}
 		}
 
-		if (!$this->config['skip_exitcode_handling']) {
+		if (!$this->config['skip_exitcode_handling'] && PHP_OS !== 'WINNT') {
 			$exitcode = trim( (string) stream_get_contents($pipes[3]));
 			fclose($pipes[3]);
 
