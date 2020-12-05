@@ -18,7 +18,7 @@ $default_exec_reporter_config = [
 	'append_stdout' => false,
 	'append_stderr' => false,
 
-	'ignore_exitcodes' => [],  //array of exitcodes to ignore or string `*` to ignore all
+	'ignore_exitcodes' => [],  //array of exitcodes to ignore
 	'skip_exitcode_handling' => false,
 ];
 
@@ -132,7 +132,7 @@ class exec_reporter {
 			$send_notification = true;
 		} elseif ($this->config['notify_if_stderr'] && $stderr) {
 			$send_notification = true;
-		} elseif ($this->config['notify_if_exitcode'] && $exitcode != 0) {
+		} elseif ($this->config['notify_if_exitcode'] && $exitcode != 0 && !in_array($exitcode, $this->config['ignore_exitcodes'])) {
 			$send_notification = true;
 		}
 
