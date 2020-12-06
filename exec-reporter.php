@@ -13,10 +13,11 @@ $default_exec_reporter_config = [
 	'notify_if_stdout' => false,  //send email if STDOUT has content
 	'notify_if_stderr' => true,  //send email if STDERR has content
 	'notify_if_exitcode' => true,  //send email if exit code is not zero (not working on Windows)
-	'http_url' => false,  //set URL to send a POST HTTP request to
+	'http_url' => false,  //set URL to send a POST HTTP request to, or array with key `url` for the URL and key `post_vars` with array of additional POST variables to include, and optionally key `trigger`='always' to call the URL both on success and failure.
 
 	'append_stdout' => false,
 	'append_stderr' => false,
+	'max_log_size' => false,  //when appending is enabled you can automatically trim log files to not grow too large by setting the number of Mb at which the trim should occur
 
 	'ignore_exitcodes' => [],  //array of exitcodes to ignore
 	'skip_exitcode_handling' => false,
@@ -81,6 +82,21 @@ class exec_reporter {
 			}
 		}
 
+		// Trim log files if needed
+		if ($this->config['max_log_size']) {
+			$maxbytes = $this->config['max_log_size'] * 1024 * 1024;
+			if ($stdout_file && $this->config['append_stdout'] && file_exists($stdout_file) && filesize($stdout_file) > $maxbytes) {
+				$content = file_get_contents($stdout_file);
+				$content = substr($content, -$maxbytes);
+				file_put_contents($stdout_file, $content);
+			}
+			if ($stderr_file && $this->config['append_stderr'] && file_exists($stderr_file) && filesize($stderr_file) > $maxbytes) {
+				$content = file_get_contents($stderr_file);
+				$content = substr($content, -$maxbytes);
+				file_put_contents($stderr_file, $content);
+			}
+		}
+
 		// Handle special situations in the command line
 		$command = str_replace('[DASH]', '-', $command);
 
@@ -98,19 +114,31 @@ class exec_reporter {
 			$eff_command = $command;
 		}
 
+		$starttime = microtime(true);
+
 		$process = proc_open($eff_command, $descriptorspec, $pipes, dirname(__FILE__));
 
 		$stdout = stream_get_contents($pipes[1]);
 		fclose($pipes[1]);
+
+		$stderr = stream_get_contents($pipes[2]);
+		fclose($pipes[2]);
+
+		$duration = microtime(true) - $starttime;
+		$memory_usage = memory_get_peak_usage(true);  //maybe not 100% correct but sort of. See also https://stackoverflow.com/questions/14091284/how-to-get-the-memory-usage-of-a-process-executed-by-proc-open
+
 		if ($stdout_file) {
+			if ($stdout && $this->config['append_stdout']) {
+				$stdout = '[[[ '. date('Y-m-d H:i:s', $starttime) .' - '. number_format($duration, 3) .'s - '. round($memory_usage/1024/1024) .'Mb ]]]'. PHP_EOL . PHP_EOL . $stdout . PHP_EOL . PHP_EOL;
+			}
 			if ($stdout && file_put_contents($stdout_file, $stdout, ($this->config['append_stdout'] ? FILE_APPEND : 0)) === false) {
 				$this->notify_error('Failed to dump STDOUT to file in Exec-Reporter.', ['File' => $stdout_file, 'Command' => $command]);
 			}
 		}
-
-		$stderr = stream_get_contents($pipes[2]);
-		fclose($pipes[2]);
 		if ($stderr_file) {
+			if ($stderr && $this->config['append_stderr']) {
+				$stderr = '[[[ '. date('Y-m-d H:i:s', $starttime) .' - '. number_format($duration, 3) .'s - '. round($memory_usage/1024/1024) .'Mb ]]]'. PHP_EOL . PHP_EOL . $stderr . PHP_EOL . PHP_EOL;
+			}
 			if ($stderr && file_put_contents($stderr_file, $stderr, ($this->config['append_stderr'] ? FILE_APPEND : 0)) === false) {
 				$this->notify_error('Failed to dump STDERR to file in Exec-Reporter.', ['File' => $stderr_file, 'Command' => $command]);
 			}
@@ -134,11 +162,13 @@ class exec_reporter {
 			$send_notification = true;
 		} elseif ($this->config['notify_if_exitcode'] && $exitcode != 0 && !in_array($exitcode, $this->config['ignore_exitcodes'])) {
 			$send_notification = true;
+		} elseif (is_array($this->config['http_url']) && $this->config['http_url']['trigger'] === 'always') {
+			$send_notification = 'httponly';
 		}
 
 		// Send notification
 		if ($send_notification) {
-			if (!empty($this->config['recipients'])) {
+			if (!empty($this->config['recipients']) && $send_notification !== 'httponly') {
 				$subject = $this->config['subject_line'];
 				$body  = "Command:\n========\n". $command ."\n\n\n\n";
 				$body .= "StdOUT:\n=======\n". $stdout ."\n\n\n\n";
@@ -147,7 +177,7 @@ class exec_reporter {
 				$this->notify_via_email($subject, $body);
 			}
 			if ($this->config['http_url']) {
-				$this->notify_via_http($stdout, $stderr, $exitcode);
+				$this->notify_via_http($stdout, $stderr, $exitcode, $duration, $memory_usage);
 			}
 		}
 	}
@@ -237,19 +267,22 @@ class exec_reporter {
 		}
 	}
 
-	public function notify_via_http($stdout, $stderr, $exitcode) {
+	public function notify_via_http($stdout, $stderr, $exitcode, $duration, $memory_usage) {
 		if ($this->config['http_url']) {
 			if (is_array($this->config['http_url'])) {
 				$url = $this->config['http_url']['url'];
-				$extra_vars = $this->config['http_url']['post_vars'];
+				$extra_vars = (array) $this->config['http_url']['post_vars'];
 			} else {
 				$url = $this->config['http_url'];
 				$extra_vars = [];
 			}
 			httpRequest('POST', $url, array_merge($extra_vars, [
+				'status' => ($stderr ? 'error' : 'ok'),
 				'stdout' => $stdout,
 				'stdoerr' => $stderr,
 				'exitcode' => $exitcode,
+				'duration_secs' => round($duration, 3),
+				'memory_usage_bytes' => $memory_usage,
 				'config' => json_encode( (substr($url, 0, 5) === 'https' ? $this->get_safe_config() : ['message' => 'only transmitted on https']) ),
 			]));
 		}
