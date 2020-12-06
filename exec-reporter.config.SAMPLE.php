@@ -7,18 +7,19 @@ $config = [
 	'smtp_encryption' => 'tls',  // 'tls' or 'ssl'
 
 	'from_email' => 'noreply@sample.com',
-	'from_name' => 'exec_reporter',  //replace with a system identifier so you know where the email comes from
+	'from_name' => 'Exec-Reporter',  //replace with a system identifier so you know where the email comes from
 	'subject_line' => 'Cron job failed',
 	'recipients' => [],   // formatter as either `['sample@sample.com']` or `['sample@sample.com' => 'Mr Sample']`
 	'notify_if_stdout' => false,  //send email if STDOUT has content
 	'notify_if_stderr' => true,  //send email if STDERR has content
-	'notify_if_exitcode' => true,  //send email if exit code is not zero
-	'http_url' => false,  //set URL to send a POST HTTP request to
+	'notify_if_exitcode' => true,  //send email if exit code is not zero (not working on Windows)
+	'http_url' => false,  //set URL to send a POST HTTP request to, or array with key `url` for the URL and key `post_vars` with array of additional POST variables to include, and optionally key `trigger`='always' to call the URL both on success and failure.
 
 	'append_stdout' => false,
 	'append_stderr' => false,
+	'max_log_size' => false,  //when appending is enabled you can automatically trim log files to not grow too large by setting the number of Mb at which the trim should occur
 
-	'ignore_exitcodes' => [],  //array of exitcodes to ignore or string `*` to ignore all
+	'ignore_exitcodes' => [],  //array of exitcodes to ignore
 	'skip_exitcode_handling' => false,
 ];
 
