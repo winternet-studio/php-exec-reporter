@@ -9,7 +9,7 @@ $default_exec_reporter_config = [
 	'from_email' => 'noreply@sample.com',
 	'from_name' => 'Exec-Reporter',  //replace with a system identifier so you know where the email comes from
 	'subject_line' => 'Cron job failed',
-	'recipients' => [],   // formatter as either `['sample@sample.com']` or `['sample@sample.com' => 'Mr Sample']`
+	'recipients' => [],   // format as either `['sample@sample.com']` or `['sample@sample.com' => 'Mr Sample']`
 	'notify_if_stdout' => false,  //send email if STDOUT has content
 	'notify_if_stderr' => true,  //send email if STDERR has content
 	'notify_if_exitcode' => true,  //send email if exit code is not zero (not working on Windows)
@@ -103,9 +103,13 @@ class exec_reporter {
 		// Execute command  (source: https://stackoverflow.com/questions/2320608/php-stderr-after-exec)
 		$descriptorspec = [
 			// 0 => ['pipe', 'r'],  // stdin
-			1 => ['pipe', 'w'],  // stdout
-			2 => ['pipe', 'w'],  // stderr
 		];
+		if ($stdout_file) {
+			$descriptorspec[1] = ['pipe', 'w'];  // stdout
+		}
+		if ($stderr_file) {
+			$descriptorspec[2] = ['pipe', 'w'];  // stderr
+		}
 
 		if (!$this->config['skip_exitcode_handling'] && PHP_OS !== 'WINNT') {
 			$descriptorspec[3] = ['pipe', 'w'];  // for writing exit to (source: https://www.php.net/manual/en/function.proc-close.php)
@@ -118,11 +122,15 @@ class exec_reporter {
 
 		$process = proc_open($eff_command, $descriptorspec, $pipes, dirname(__FILE__));
 
-		$stdout = stream_get_contents($pipes[1]);
-		fclose($pipes[1]);
+		if ($stdout_file) {
+			$stdout = stream_get_contents($pipes[1]);
+			fclose($pipes[1]);
+		}
 
-		$stderr = stream_get_contents($pipes[2]);
-		fclose($pipes[2]);
+		if ($stderr_file) {
+			$stderr = stream_get_contents($pipes[2]);
+			fclose($pipes[2]);
+		}
 
 		$duration = microtime(true) - $starttime;
 		$memory_usage = memory_get_peak_usage(true);  //maybe not 100% correct but sort of. See also https://stackoverflow.com/questions/14091284/how-to-get-the-memory-usage-of-a-process-executed-by-proc-open
@@ -170,10 +178,11 @@ class exec_reporter {
 		if ($send_notification) {
 			if (!empty($this->config['recipients']) && $send_notification !== 'httponly') {
 				$subject = $this->config['subject_line'];
-				$body  = "Command:\n========\n". $command ."\n\n\n\n";
-				$body .= "StdOUT:\n=======\n". $stdout ."\n\n\n\n";
-				$body .= "StdERR:\n=======\n". $stdout ."\n\n\n\n";
-				$body .= "ExitCode:\n=========\n". $exitcode;
+				$sep = str_repeat('=', 60);
+				$body  = $sep ."\nCOMMAND\n". $sep ."\n\n". trim($command) ."\n\n\n";
+				$body .= $sep ."\nSTDOUT\n". $sep ."\n\n". trim($stdout) ."\n\n\n";
+				$body .= $sep ."\nSTDERR\n". $sep ."\n\n". trim($stderr) ."\n\n\n";
+				$body .= $sep ."\nEXITCODE\n". $sep ."\n\n". trim($exitcode);
 				$this->notify_via_email($subject, $body);
 			}
 			if ($this->config['http_url']) {
