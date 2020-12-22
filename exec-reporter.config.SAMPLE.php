@@ -19,6 +19,8 @@ $config = [
 	'append_stderr' => false,
 	'max_log_size' => false,  //when appending is enabled you can automatically trim log files to not grow too large by setting the number of Mb at which the trim should occur
 
+	'stderr_content_callback' => null,  //option to provide a callback function that can modify the STDERR content before we process it. The one and only argument will hold the content and must be returned when done.
+
 	'ignore_exitcodes' => [],  //array of exitcodes to ignore
 	'skip_exitcode_handling' => false,
 ];

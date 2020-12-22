@@ -19,6 +19,8 @@ $default_exec_reporter_config = [
 	'append_stderr' => false,
 	'max_log_size' => false,  //when appending is enabled you can automatically trim log files to not grow too large by setting the number of Mb at which the trim should occur
 
+	'stderr_content_callback' => null,  //option to provide a callback function that can modify the STDERR content before we process it. The one and only argument will hold the content and must be returned when done.
+
 	'ignore_exitcodes' => [],  //array of exitcodes to ignore
 	'skip_exitcode_handling' => false,
 ];
@@ -145,6 +147,9 @@ class exec_reporter {
 		}
 		if ($stderr_file) {
 			if ($stderr && $this->config['append_stderr']) {
+				if (is_callable($this->config['stderr_content_callback'])) {
+					$stderr = trim( (string) $this->config['stderr_content_callback']($stderr) );
+				}
 				$stderr = '[[[ '. date('Y-m-d H:i:s', $starttime) .' - '. number_format($duration, 3) .'s - '. round($memory_usage/1024/1024) .'Mb ]]]'. PHP_EOL . PHP_EOL . $stderr . PHP_EOL . PHP_EOL;
 			}
 			if ($stderr && file_put_contents($stderr_file, $stderr, ($this->config['append_stderr'] ? FILE_APPEND : 0)) === false) {
