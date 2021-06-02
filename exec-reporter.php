@@ -44,7 +44,7 @@ $default_exec_reporter_config = [
  * - Third: File to dump STDERR in (set to '0' to not dump to file)
  * - The rest: Command to execute. If an argument starts with a dash `-` you need to replace it with `[DASH]` to not make the interpreter complain.
  *
- * @version 1.0
+ * @version 1.2.1
  */
 class exec_reporter {
 	public $config = [];
