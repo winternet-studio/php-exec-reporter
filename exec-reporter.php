@@ -57,8 +57,7 @@ class exec_reporter {
 		} elseif (file_exists('exec-reporter.config.php')) {
 			$this->config = require('exec-reporter.config.php');
 		} else {
-			global $default_exec_reporter_config;
-			$this->config = $default_exec_reporter_config;
+			throw new \Exception('No configuration file found.');
 		}
 	}
 
