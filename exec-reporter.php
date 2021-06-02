@@ -54,8 +54,8 @@ class exec_reporter {
 			$this->config = $config;
 		} elseif (!empty($config) && is_string($config) && file_exists($config)) {
 			$this->config = require($config);
-		} elseif (file_exists('exec-reporter.config.php')) {
-			$this->config = require('exec-reporter.config.php');
+		} elseif (file_exists(__DIR__ .'/exec-reporter.config.php')) {
+			$this->config = require(__DIR__ .'/exec-reporter.config.php');
 		} else {
 			throw new \Exception('No configuration file found.');
 		}
